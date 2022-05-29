@@ -1,0 +1,15 @@
+@GUPL_VERSION 0.0.1
+
+@ENTITY sendrecv
+
+@RECV 0 input 128
+  data        ,<12288
+@END
+
+@SEND 0 output 128
+  data        ,<12288
+@END
+
+@STAGE sendrecv
+  @SEND output
+@END

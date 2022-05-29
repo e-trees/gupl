@@ -1,0 +1,177 @@
+@GUPL_VERSION 0.0.1
+
+@ENTITY command_parser
+
+@RECV 0 input 128
+  myIpAddr    , 32
+  dstIpAddr   , 32
+  myPort      , 16
+  dstPort     , 16
+  payloadBytes, 32
+  command     , 64
+  data0       , 32
+  data1       , 32
+  data        ,<12288
+@END
+
+@SEND 0 output 128
+  myIpAddr    , 32
+  dstIpAddr   , 32
+  myPort      , 16
+  dstPort     , 16
+  payloadBytes, 32
+  command     , 64
+  data0       , 32
+  data1       , 32
+  data        ,<12288
+@END
+
+@RECV 1 forward_input 128
+  fwdMyIpAddr    , 32
+  fwdDstIpAddr   , 32
+  fwdMyPort      , 16
+  fwdDstPort     , 16
+  fwdPayloadBytes, 32
+  data           ,<12288
+@END
+
+@SEND 1 forward_output 128
+  fwdMyIpAddr    , 32
+  fwdDstIpAddr   , 32
+  fwdMyPort      , 16
+  fwdDstPort     , 16
+  fwdPayloadBytes, 32
+  data           ,<12288
+@END
+
+@PORT
+  synch_sender_kick , 0 , out
+  synch_sender_busy , 0 , in
+  synch_target_addr , 32, out
+  synch_target_port , 16, out
+  global_clock      , 64, in
+  global_clock_clear, 0 , out
+@END
+
+@LOCAL
+  state_counter, 8, unsigned
+  data_r, 128
+  synch_sender_kick_w, 0
+@END
+
+@RESET_STAGE reset
+  synch_sender_kick_w <= '0';
+  global_clock_clear <= '0';
+@END
+
+@ASYNC
+  synch_sender_kick <= synch_sender_kick_w;
+@END
+
+@IDLE_STAGE
+  state_counter <= (others => '0');
+  synch_sender_kick_w <= '0';
+  global_clock_clear <= '0';
+@END
+
+@STAGE command_parser
+
+  -- kick time-synch
+  if command(63 downto 56) = X"32" then
+    @TO kick_timesynch    
+  elsif command(63 downto 56) = X"34" then
+    @TO clear_clock
+  elsif command(63 downto 56) = X"36" then
+    @TO forward_packet
+  else
+    @TO send_reply
+  end if;
+
+@END
+
+@STAGE kick_timesynch
+
+  case(to_integer(state_counter)) is
+  when 0 =>
+    synch_sender_kick_w <= '1';
+    synch_target_addr <= data0;
+    synch_target_port <= data1(15 downto 0);
+    state_counter <= state_counter + 1;
+    payloadBytes <= std_logic_vector(unsigned(payloadBytes) - 8 - 8);
+  when 1 =>
+    synch_sender_kick_w <= '0';
+    if synch_sender_kick_w = '0' and synch_sender_busy = '0' then
+      if unsigned(payloadBytes) = 0 then
+        @to send_reply
+      else
+        payloadBytes <= std_logic_vector(unsigned(payloadBytes) - 8);
+        synch_sender_kick_w <= '1';
+        synch_target_addr <= data_dout(127 downto 96);
+        synch_target_port <= data_dout(79 downto 64);
+        data_r <= data_dout;
+        data_raddr <= std_logic_vector(unsigned(data_raddr) + 1);
+        state_counter <= state_counter + 1;
+      end if; 
+    end if;
+  when 2 =>
+    synch_sender_kick_w <= '0';
+    if synch_sender_kick_w = '0' and synch_sender_busy = '0' then
+      if unsigned(payloadBytes) = 0 then
+        @to send_reply
+      else
+        payloadBytes <= std_logic_vector(unsigned(payloadBytes) - 8);
+        synch_sender_kick_w <= '1';
+        synch_target_addr <= data_r(63 downto 32);
+        synch_target_port <= data_r(15 downto 0);
+        state_counter <= to_unsigned(1, state_counter'length);
+      end if;
+    end if;
+  when others =>
+    synch_sender_kick_w <= '0';
+    @to send_reply
+  end case;
+
+@END
+
+@STAGE forward_packet
+  fwdMyIpAddr  <= myIpAddr;
+  fwdDstIpAddr <= data0;
+  fwdMyPort    <= myPort;
+  fwdDstPort   <= data1(15 downto 0);
+  fwdPayloadBytes <= std_logic_vector(unsigned(payloadBytes) - 16);
+  @SEND forward_output @to recv_forward
+@END
+
+@STAGE recv_forward
+  @RECV forward_input @to send_forward_reply
+@END
+
+@STAGE send_forward_reply
+  command(63 downto 56) <= X"37";
+  command(55 downto 0) <= (others => '0');
+  payloadBytes <= std_logic_vector(unsigned(fwdPayloadBytes)+16);
+  data0 <= fwdDstIpAddr;
+  data1 <= X"0000" & fwdDstPort;
+  @SEND forward_output @to IDLE
+@END
+
+@STAGE clear_clock
+  global_clock_clear <= '1';
+  @to send_reply
+@END
+  
+@STAGE send_reply
+  global_clock_clear <= '0';
+  payloadBytes <= X"00000010"; -- 16
+  command(63 downto 56) <= X"33";
+  command(55 downto 0) <= (others => '0');
+  data0(31 downto 24) <= global_clock( 7 downto  0);
+  data0(23 downto 16) <= global_clock(15 downto  8);
+  data0(15 downto  8) <= global_clock(23 downto 16);
+  data0( 7 downto  0) <= global_clock(31 downto 24);
+  data1(31 downto 24) <= global_clock(39 downto 32);
+  data1(23 downto 16) <= global_clock(47 downto 40);
+  data1(15 downto  8) <= global_clock(55 downto 48);
+  data1( 7 downto  0) <= global_clock(63 downto 56);
+  @SEND output @to IDLE
+@END
