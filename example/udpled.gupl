@@ -1,0 +1,30 @@
+@GUPL_VERSION 0.0.1
+
+@ENTITY udpled
+
+@RECV 0 input 32
+  myIpAddr    , 32
+  dstIpAddr   , 32
+  myPort      , 16
+  dstPort     , 16
+  payloadBytes, 32
+  led_value   , 32
+@END
+
+@SEND 0 output 32
+  myIpAddr    , 32
+  dstIpAddr   , 32
+  myPort      , 16
+  dstPort     , 16
+  payloadBytes, 32
+  led_value   , 32
+@END
+
+@PORT
+  led, 8, out
+@END
+
+@STAGE udpled
+  led <= led_value(7 downto 0);
+  @SEND output
+@END
