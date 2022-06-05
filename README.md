@@ -14,7 +14,15 @@ If bundler is not being used to manage dependencies, install the gem by executin
 
 ## Usage
 
-TODO: Write usage instructions here
+```
+ruby gupl.rb gupl-source
+```
+
+For example, 
+
+```
+ruby gupl.rb example/sendrecv.gupl
+```
 
 ## Development
 
@@ -29,11 +37,5 @@ Bug reports and pull requests are welcome on GitHub at https://github.com/e-tree
 ## Code of Conduct
 
 Everyone interacting in the Gupl project's codebases, issue trackers, chat rooms and mailing lists is expected to follow the [code of conduct](https://github.com/e-trees/gupl/blob/master/CODE_OF_CONDUCT.md).
-
-## Getting started
-
-```
-ruby gupl.rb example/sendrecv.gupl
-```
 
 ## Syntax

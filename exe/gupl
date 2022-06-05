@@ -3,6 +3,13 @@
 require 'gupl'
 
 # main
+
+if ARGV.size == 0
+  puts("Usage: #{__FILE__} gupl-sources")
+  puts("  examples of gupl-source are available in https://github.com/e-trees/gupl/tree/main/example")
+end
+
+
 ARGV.each{|argv|
   entity = nil
   version = nil
@@ -10,13 +17,21 @@ ARGV.each{|argv|
     str = f.read()
     version, entity = Gupl.main(str)
   }
-  exit(0) if entity == nil
-  exit(0) if version == nil
+  if entity == nil
+    puts "ERROR: entity is undefined in #{argv}"
+    next
+  end
+  if version == nil
+    puts "ERROR: version is undefined in #{argv}"
+    next
+  end
 
   dirname = File.dirname(argv)
-  open("#{dirname}/#{entity.name}.vhd", "w"){|dst|
+  destination = "#{dirname}/#{entity.name}.vhd"
+  open("#{destination}", "w"){|dst|
     buf = StringIO.new("", "w")
     entity.generate(buf)
     dst.puts(buf.string())
   }
+  puts("generate #{destination}")
 }

@@ -786,8 +786,6 @@ module Gupl
       end
     end
 
-    puts "ERROR: entity is undefined" if entity == nil
-    puts "ERROR: version is undefined" if version == nil
     return version, entity
   end
 
