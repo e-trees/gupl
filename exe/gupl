@@ -1,0 +1,22 @@
+#!/usr/bin/env ruby
+
+require 'gupl'
+
+# main
+ARGV.each{|argv|
+  entity = nil
+  version = nil
+  open(argv){|f|
+    str = f.read()
+    version, entity = Gupl.main(str)
+  }
+  exit(0) if entity == nil
+  exit(0) if version == nil
+
+  dirname = File.dirname(argv)
+  open("#{dirname}/#{entity.name}.vhd", "w"){|dst|
+    buf = StringIO.new("", "w")
+    entity.generate(buf)
+    dst.puts(buf.string())
+  }
+}

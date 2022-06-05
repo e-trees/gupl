@@ -1,1 +1,14 @@
 *~
+*.jou
+*.log
+*.str
+/.bundle/
+/.yardoc
+/_yardoc/
+/coverage/
+/doc/
+/pkg/
+/spec/reports/
+/tmp/
+Gemfile.lock
+example/*.vhd
