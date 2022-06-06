@@ -1,4 +1,5 @@
 module Gupl
+  
   class LocalSignal
 
     def initialize(name:, width:)
@@ -30,6 +31,18 @@ module Gupl
       @dir = dir
     end
     attr_reader :name, :width, :dir
+
+    def input?
+      return @dir == "in"
+    end
+    
+    def output?
+      return @dir == "out"
+    end
+    
+    def inout?
+      return @dir == "inout"
+    end
     
     def generate_define(buf)
       if @width > 0 then
@@ -40,4 +53,5 @@ module Gupl
     end
     
   end
+  
 end

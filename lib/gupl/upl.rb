@@ -1,4 +1,5 @@
 module Gupl
+  
   class UPL
     def initialize(entity:, name:, width:, id:)
       @entity = entity
