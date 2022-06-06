@@ -7,7 +7,7 @@ Gem::Specification.new do |spec|
   spec.version = Gupl::VERSION
   spec.authors = ["Takefumi MIYOSHI"]
   spec.email = ["miyo@wasamon.net"]
-
+  spec.license = 'Apache-2.0'
   spec.summary = "gupl makes UPL module."
   spec.description = "gupl makes UPL modules, which is a VHDL generator."
   spec.homepage = "https://github.com/e-trees/gupl"
