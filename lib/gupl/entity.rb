@@ -1,0 +1,192 @@
+module Gupl
+  class Entity
+    
+    def initialize(name)
+      @name = name
+      @send_upls = []
+      @recv_upls = []
+      @ports = []
+      @signals = []
+      @process = MainProcess.new(self)
+      @async = ""
+    end
+    attr_reader :name, :send_upls, :recv_upls, :process
+
+    def get_main_recv_upl()
+      @recv_upls.each{|upl|
+        return upl if upl.id == 0
+      }
+      return nil
+    end
+
+    def add_send_upl(upl)
+      @send_upls << upl
+    end
+    
+    def add_recv_upl(upl)
+      @recv_upls << upl
+    end
+    
+    def add_port(port)
+      @ports << port
+    end
+
+    def add_signal(signal)
+      @signals << signal
+    end
+
+    def add_reset_stage(str)
+      @process.add_reset_stage(str)
+    end
+    
+    def add_idle_stage(str)
+      @process.add_idle_stage(str)
+    end
+
+    def add_new_stage(name)
+      @process.add_new_stage(name)
+    end
+
+    def add_async(str)
+      @async += str
+    end
+
+    def generate_vhdl_header(buf)
+      buf.puts("library ieee;")
+      buf.puts("use ieee.std_logic_1164.all;")
+      buf.puts("use ieee.numeric_std.all;")
+      buf.puts("")
+    end
+
+    def generate_entity_define(buf)
+      buf.puts("entity #{@name} is")
+      buf.puts("port(")
+      
+      @recv_upls.each{|upl|
+        upl.generate_ports(buf)
+      }
+
+      @send_upls.each{|upl|
+        upl.generate_ports(buf)
+      }
+      
+      buf.puts("  -- user-defiend ports")
+      @ports.each{|port|
+        port.generate_define(buf)
+      }
+      buf.puts("")
+      
+      buf.puts("  -- system clock and reset")
+      buf.puts("  clk : in std_logic;")
+      buf.puts("  reset : in std_logic")
+      buf.puts(");")
+      buf.puts("end entity #{@name};")
+      buf.puts("")
+    end
+
+    def generate_architecture_define(buf)
+      buf.puts("architecture RTL of #{@name} is")
+      buf.puts("")
+
+      @process.statemachine.generate_define(buf)
+
+      buf.puts()
+      buf.puts("  -- UPL signals")
+      table = {}
+      @send_upls.each{|upl|
+        upl.variables.each{|var|
+          next if table[var.name] != nil
+          table[var.name] = var
+          var.generate_define(buf)
+        }      
+      }
+      @recv_upls.each{|upl|
+        upl.variables.each{|var|
+          next if table[var.name] != nil
+          table[var.name] = var
+          var.generate_define(buf)
+        }      
+      }
+
+      buf.puts()
+      buf.puts("  -- user-defiend signals")
+      @signals.each{|signal|
+        signal.generate_define(buf)
+      }
+      buf.puts("")
+
+      buf.puts("  -- ip-cores")
+      simple_dualportram = false
+      table.values.each{|var|
+        if var.storage? and simple_dualportram == false then
+          simple_dualportram = true
+          buf.puts("  component simple_dualportram")
+          buf.puts("    generic (")
+          buf.puts("      DEPTH : integer := 10;")
+          buf.puts("      WIDTH : integer := 32;")
+          buf.puts("      WORDS : integer := 1024")
+          buf.puts("    );")
+          buf.puts("    port (")
+          buf.puts("      clk    : in  std_logic;")
+          buf.puts("      reset  : in  std_logic;")
+          buf.puts("      we     : in  std_logic_vector(0 downto 0);")
+          buf.puts("      raddr  : in  std_logic_vector(31 downto 0);")
+          buf.puts("      waddr  : in  std_logic_vector(31 downto 0);")
+          buf.puts("      dout   : out std_logic_vector(WIDTH-1 downto 0);")
+          buf.puts("      din    : in  std_logic_vector(WIDTH-1 downto 0);")
+          buf.puts("      length : out std_logic_vector(31 downto 0)")
+          buf.puts("    );")
+          buf.puts("  end component simple_dualportram;")
+        end
+      }
+      buf.puts("")
+      
+      buf.puts("begin")
+      buf.puts("")
+      buf.puts("  -- add async")
+      buf.puts(@async)
+      
+      buf.puts("")
+      @process.generate(buf)
+      buf.puts("")
+
+      buf.puts("")
+      table.values.each{|var|
+        if var.storage? then
+          buf.puts("  buf_#{var.name}_i : simple_dualportram")
+          buf.puts("    generic map(")
+          buf.puts("      DEPTH => #{Math.log2((var.bits/var.upl.width).ceil).ceil},")
+          buf.puts("      WIDTH => #{var.upl.width},")
+          buf.puts("      WORDS => #{(var.bits/var.upl.width).ceil}")
+          buf.puts("    )")
+          buf.puts("    port map(")
+          buf.puts("      clk    => clk,")
+          buf.puts("      reset  => reset,")
+          buf.puts("      we     => #{var.name}_we,")
+          buf.puts("      raddr  => #{var.name}_raddr,")
+          buf.puts("      waddr  => #{var.name}_waddr,")
+          buf.puts("      dout   => #{var.name}_dout,")
+          buf.puts("      din    => #{var.name}_din,")
+          buf.puts("      length => open")
+          buf.puts("    );")
+        end
+      }
+
+      
+      buf.puts("end RTL;")
+    end
+    
+    def generate(buf)
+      buf.puts("--")
+      buf.puts("-- generated by gupl ver.#{VERSION}")
+      buf.puts("-- https://github.com/e-trees/gupl")
+      buf.puts("--")
+      buf.puts("")
+      generate_vhdl_header(buf)
+      generate_entity_define(buf)
+      generate_architecture_define(buf)
+    end
+
+  end
+end
+
